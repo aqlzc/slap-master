@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <title>响亮！影帝 - Slap Master</title>
+  <style>
+    /* ========== 基础重置 ========== */
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html, body {
+      width:100%; height:100%; overflow:hidden; background:#0a0a0a;
+      font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ========== 安全区适配 ========== */
+    .safe-area-top { padding-top: env(safe-area-inset-top, 0); }
+    .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
+
+    /* ========== 屏幕震动 ========== */
+    @keyframes screenShake {
+      0%   { transform: translate(0,0) rotate(0); }
+      10%  { transform: translate(-6px,-3px) rotate(-1deg); }
+      20%  { transform: translate(6px,3px) rotate(1deg); }
+      30%  { transform: translate(-4px,2px) rotate(-0.5deg); }
+      40%  { transform: translate(4px,-2px) rotate(0.5deg); }
+      50%  { transform: translate(-2px,1px) rotate(0); }
+      100% { transform: translate(0,0) rotate(0); }
+    }
+    .shake { animation: screenShake 0.15s ease-out; }
+
+    /* ========== 闪光 ========== */
+    @keyframes flashFade { 0%{opacity:0.85} 100%{opacity:0} }
+    .flash-overlay {
+      position:fixed; inset:0; z-index:9999;
+      background: radial-gradient(ellipse at center, #fff 0%, #ffffffcc 40%, transparent 80%);
+      pointer-events:none; animation: flashFade 0.15s ease-out forwards;
+    }
+
+    /* ========== 浮动文字 ========== */
+    @keyframes floatUp {
+      0%   { opacity:1; transform:translate(-50%,-50%) scale(0.6); }
+      20%  { opacity:1; transform:translate(-50%,-60%) scale(1.3); }
+      40%  { opacity:1; transform:translate(-50%,-80%) scale(1.1); }
+      100% { opacity:0; transform:translate(-50%,-160%) scale(1.0); }
+    }
+    .float-text {
+      position:fixed; left:50%; top:50%; z-index:10000; pointer-events:none;
+      font-size: clamp(2rem, 8vw, 3.5rem); font-weight:900;
+      text-shadow: 0 0 10px rgba(0,0,0,0.8), 2px 2px 0 rgba(0,0,0,0.6);
+      -webkit-text-stroke: 1.5px rgba(0,0,0,0.5);
+      animation: floatUp 0.5s ease-out forwards; white-space:nowrap;
+    }
+
+    /* ========== 巴掌手型 ========== */
+    @keyframes slapHand {
+      0%   { opacity:1; transform: translate(-50%,-50%) scale(0.3) rotate(-30deg); }
+      20%  { opacity:1; transform: translate(-50%,-50%) scale(1.4) rotate(10deg); }
+      50%  { opacity:1; transform: translate(-50%,-50%) scale(1.1) rotate(-5deg); }
+      100% { opacity:0; transform: translate(-50%,-50%) scale(0.8) rotate(0deg); }
+    }
+    .slap-hand {
+      position:fixed; z-index:10001; pointer-events:none;
+      font-size: clamp(3rem, 12vw, 5rem);
+      animation: slapHand 0.4s ease-out forwards;
+    }
+
+    /* ========== 游戏视频 ========== */
+    #gameVideo {
+      position:fixed; top:0; left:0; width:100vw; height:100vh;
+      object-fit: contain; background:#000;
+    }
+
+    /* 竖屏下横屏视频的背景美化 */
+    @media (orientation: portrait) {
+      #gameScreen {
+        background: linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 30%, #16213e 50%, #1a1a2e 70%, #0a0a0a 100%);
+      }
+    }
+
+    /* ========== 粒子 ========== */
+    @keyframes particleBurst {
+      0%   { opacity:1; transform: translate(var(--px),var(--py)) scale(1); }
+      100% { opacity:0; transform: translate(calc(var(--px) + var(--dx)), calc(var(--py) + var(--dy))) scale(0); }
+    }
+    .hit-particle {
+      position:fixed; z-index:9998; pointer-events:none;
+      width:6px; height:6px; border-radius:50%;
+      animation: particleBurst 0.4s ease-out forwards;
+    }
+
+    /* ========== Combo ========== */
+    @keyframes comboPop { 0%{transform:scale(1)} 30%{transform:scale(1.5)} 60%{transform:scale(0.9)} 100%{transform:scale(1)} }
+    .combo-pop { animation: comboPop 0.25s ease-out; }
+
+    /* ========== 冲击波 ========== */
+    @keyframes shockwave {
+      0%   { transform:translate(-50%,-50%) scale(0); opacity:0.6; border-width:4px; }
+      100% { transform:translate(-50%,-50%) scale(2.5); opacity:0; border-width:1px; }
+    }
+    .shockwave-ring {
+      position:fixed; left:50%; top:50%; width:100px; height:100px;
+      border-radius:50%; border:4px solid #ffd700; z-index:9997;
+      pointer-events:none; animation: shockwave 0.35s ease-out forwards;
+    }
+
+    /* ========== 菜单背景 ========== */
+    @keyframes bgPulse { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+    .menu-bg {
+      position:fixed; inset:0; z-index:50;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      background-size: 200% 200%; animation: bgPulse 6s ease infinite;
+      padding: 20px; overflow-y: auto;
+    }
+
+    @keyframes btnGlow {
+      0%,100% { box-shadow: 0 0 20px rgba(255,215,0,0.3), inset 0 0 20px rgba(255,215,0,0.1); }
+      50%     { box-shadow: 0 0 40px rgba(255,215,0,0.6), inset 0 0 30px rgba(255,215,0,0.2); }
+    }
+
+    @keyframes slideUp { 0%{transform:translateY(100%);opacity:0} 100%{transform:translateY(0);opacity:1} }
+
+    @keyframes heartBeat { 0%,100%{transform:scale(1)} 15%{transform:scale(1.3)} 30%{transform:scale(1)} 45%{transform:scale(1.15)} 60%{transform:scale(1)} }
+    .heart-lost { animation: heartBeat 0.4s ease; }
+
+    @keyframes titleShine { 0%{background-position:-200% center} 100%{background-position:200% center} }
+    .title-shine {
+      background: linear-gradient(90deg, #ffd700 0%, #fff 25%, #ffd700 50%, #ff6b35 75%, #ffd700 100%);
+      background-size: 200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+      animation: titleShine 3s linear infinite;
+    }
+
+    /* ========== 装饰粒子 ========== */
+    @keyframes decorPulse {
+      0%,100% { opacity: 0.3; transform: scale(1); }
+      50%     { opacity: 0.8; transform: scale(1.2); }
+    }
+    .decor-dot {
+      position:absolute; border-radius:50%; pointer-events:none;
+      animation: decorPulse 3s ease-in-out infinite;
+    }
+
+    /* ========== 关卡卡片 ========== */
+    .level-card {
+      width: calc(50% - 8px); min-width: 130px; max-width: 180px;
+      padding: 14px 10px; border-radius:16px;
+      background: rgba(255,255,255,0.05);
+      border: 2px solid rgba(255,255,255,0.1);
+      text-align:center; cursor:pointer;
+      transition: all 0.3s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .level-card:active { transform: scale(0.95) !important; }
+    .level-card.active {
+      border-color: #eab308 !important;
+      box-shadow: 0 0 24px rgba(234,179,8,0.25);
+      background: rgba(234,179,8,0.08);
+    }
+    .level-card.insane-card {
+      border-color: rgba(168,85,247,0.4);
+      background: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(239,68,68,0.08));
+      animation: insaneGlow 2s ease-in-out infinite;
+    }
+    .level-card.insane-card.active {
+      border-color: #a855f7 !important;
+      box-shadow: 0 0 30px rgba(168,85,247,0.4);
+    }
+    @keyframes insaneGlow {
+      0%,100% { box-shadow: 0 0 8px rgba(168,85,247,0.15); }
+      50% { box-shadow: 0 0 16px rgba(168,85,247,0.3); }
+    }
+    .level-card-icon { font-size: 2rem; margin-bottom: 6px; }
+    .level-card-title { color:#fff; font-weight:800; font-size: clamp(0.8rem, 3.5vw, 1rem); margin-bottom: 4px; }
+    .level-card-diff {
+      display:inline-block; padding: 2px 8px; border-radius:6px;
+      font-size:0.65rem; font-weight:700;
+    }
+    .diff-easy { background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(34,197,94,0.3); }
+    .diff-normal { background:rgba(234,179,8,0.15); color:#fbbf24; border:1px solid rgba(234,179,8,0.3); }
+    .diff-hard { background:rgba(239,68,68,0.15); color:#f87171; border:1px solid rgba(239,68,68,0.3); }
+    .diff-insane { background:rgba(168,85,247,0.15); color:#c084fc; border:1px solid rgba(168,85,247,0.3); }
+    .level-card-count { color:#6b7280; font-size:0.65rem; margin-top: 6px; }
+
+    /* ========== 开始按钮 ========== */
+    .btn-start {
+      position:relative; padding: 14px 48px; border-radius:16px;
+      font-size: clamp(1rem, 4vw, 1.2rem); font-weight:900; color:#000;
+      background: linear-gradient(135deg, #fbbf24, #f97316, #ef4444);
+      border:none; cursor:pointer;
+      transition: all 0.3s; animation: btnGlow 2s ease-in-out infinite;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-start:disabled { opacity:0.3; cursor:not-allowed; }
+    .btn-start:active:not(:disabled) { transform: scale(0.95); }
+
+    /* ========== 倒计时 ========== */
+    @keyframes countdownPop {
+      0%   { transform: translate(-50%,-50%) scale(0.3); opacity: 0; }
+      30%  { transform: translate(-50%,-50%) scale(1.4); opacity: 1; }
+      70%  { transform: translate(-50%,-50%) scale(1.0); opacity: 1; }
+      100% { transform: translate(-50%,-50%) scale(0.8); opacity: 0; }
+    }
+    .countdown-num {
+      position:fixed; left:50%; top:50%; z-index:10002; pointer-events:none;
+      font-size: clamp(5rem, 20vw, 8rem); font-weight:900; color:#ffd700;
+      text-shadow: 0 0 40px rgba(255,215,0,0.5), 0 4px 0 rgba(0,0,0,0.5);
+      animation: countdownPop 0.8s ease-out forwards;
+    }
+
+    /* ========== HUD ========== */
+    .game-hud {
+      position:fixed; top:0; left:0; right:0; z-index:100;
+      padding: 12px 16px; padding-top: calc(12px + env(safe-area-inset-top, 0));
+      display:flex; justify-content:space-between; align-items:flex-start;
+      pointer-events:none;
+    }
+    .hud-left { display:flex; flex-direction:column; gap:6px; pointer-events:auto; }
+    .hud-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; pointer-events:auto; }
+    .lives-display { display:flex; gap:3px; font-size: clamp(1.2rem, 5vw, 1.6rem); }
+    .score-display {
+      color:rgba(255,255,255,0.6); font-size: clamp(0.6rem, 2.5vw, 0.75rem);
+      font-family: 'Courier New', monospace;
+    }
+    .score-display span { color:#fbbf24; font-weight:700; }
+    .btn-pause {
+      width: 36px; height: 36px; border-radius:50%;
+      background:rgba(0,0,0,0.5); backdrop-filter:blur(8px);
+      color:#fff; font-size:1rem; border:none; cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-pause:active { transform: scale(0.9); }
+    .combo-display { text-align:right; display:none; }
+    .combo-label { color:#fb923c; font-size:0.6rem; font-weight:700; letter-spacing:2px; text-transform:uppercase; }
+    .combo-count { font-size: clamp(1.8rem, 7vw, 2.5rem); font-weight:900; color:#fbbf24; line-height:1; }
+
+    /* ========== 卡点提示 ========== */
+    .hit-hint {
+      position:fixed; bottom: calc(50px + env(safe-area-inset-bottom, 0));
+      left:50%; transform:translateX(-50%); z-index:101;
+      padding: 8px 20px; border-radius:12px;
+      background:rgba(0,0,0,0.6); backdrop-filter:blur(8px);
+      color:#fbbf24; font-weight:800; font-size: clamp(0.85rem, 3.5vw, 1rem);
+      pointer-events:none; opacity:0; transition:opacity 0.2s;
+      white-space: nowrap;
+    }
+
+    /* 竖屏模式下，卡点提示上移到视频区域附近 */
+    @media (orientation: portrait) {
+      .hit-hint {
+        bottom: auto;
+        top: calc(50% + 28vw + 16px);
+      }
+    }
+
+    /* ========== 底部进度条 ========== */
+    .progress-bar {
+      position:fixed; bottom:0; left:0; right:0; z-index:100; pointer-events:none;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .progress-track { height:4px; background:rgba(255,255,255,0.1); }
+    .progress-fill {
+      height:100%; background:linear-gradient(90deg,#fbbf24,#ef4444);
+      transition:width 0.1s; width:0%;
+    }
+
+    /* ========== 弹窗面板通用 ========== */
+    .overlay {
+      position:fixed; inset:0; display:none;
+    }
+    .overlay-bg {
+      position:absolute; inset:0;
+      background:rgba(0,0,0,0.8); backdrop-filter:blur(8px);
+    }
+    .overlay-content {
+      position:relative; z-index:10;
+      display:flex; align-items:center; justify-content:center;
+      height:100%; padding: 24px;
+    }
+
+    /* ========== 结算面板 ========== */
+    .result-card {
+      width:100%; max-width:340px;
+      background: linear-gradient(180deg, #111827, #030712);
+      border-radius:24px; border:1px solid rgba(255,255,255,0.1);
+      padding: 28px 24px; text-align:center;
+      animation: slideUp 0.5s ease-out;
+    }
+    .result-grade { font-size: clamp(3rem, 12vw, 4rem); font-weight:900; margin-bottom:6px; }
+    .result-title { color:#9ca3af; font-size: clamp(0.7rem, 3vw, 0.85rem); margin-bottom:20px; letter-spacing:2px; }
+    .result-stats {
+      display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:24px;
+    }
+    .stat-value { font-size: clamp(1.2rem, 5vw, 1.5rem); font-weight:700; }
+    .stat-label { color:#6b7280; font-size:0.65rem; margin-top:3px; }
+    .result-detail {
+      display:flex; justify-content:center; gap: clamp(12px, 4vw, 24px);
+      margin-bottom:24px; font-size: clamp(0.75rem, 3vw, 0.85rem);
+    }
+    .result-detail span:first-child { font-weight:700; }
+    .result-detail .label { color:#6b7280; }
+
+    /* ========== 按钮 ========== */
+    .btn-action {
+      flex:1; padding: 12px; border-radius:12px;
+      font-weight:700; font-size: clamp(0.85rem, 3.5vw, 1rem);
+      border:none; cursor:pointer; transition:all 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-action:active { transform: scale(0.95); }
+    .btn-retry { color:#fff; background:#374151; }
+    .btn-next { color:#000; background:linear-gradient(135deg,#fbbf24,#f97316); }
+    .btn-back { margin-top:10px; width:100%; padding:8px; border-radius:12px;
+      color:#6b7280; font-size:0.8rem; background:none; border:none; cursor:pointer; }
+    .btn-back:active { color:#fff; }
+
+    /* ========== 暂停面板 ========== */
+    .pause-content {
+      position:relative; z-index:10;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      height:100%; gap:16px;
+    }
+    .pause-title { font-size: clamp(2.5rem, 10vw, 3.5rem); font-weight:900; color:#fff; margin-bottom:12px; }
+    .btn-resume {
+      padding: 12px 48px; border-radius:12px;
+      font-weight:700; font-size: clamp(1rem, 4vw, 1.1rem); color:#000;
+      background: linear-gradient(135deg, #fbbf24, #f97316);
+      border:none; cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-resume:active { transform: scale(0.95); }
+    .btn-quit {
+      padding: 12px 48px; border-radius:12px;
+      font-weight:700; color:#9ca3af; background:#1f2937;
+      border:none; cursor:pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-quit:active { transform: scale(0.95); }
+
+    /* ========== Toast ========== */
+    @keyframes toastIn { 0%{opacity:0;transform:translateY(20px)} 100%{opacity:1;transform:translateY(0)} }
+    @keyframes toastOut { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-20px)} }
+    .toast-container {
+      position:fixed; bottom: calc(24px + env(safe-area-inset-bottom, 0));
+      left:50%; transform:translateX(-50%); z-index:9999;
+      display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none;
+    }
+    .toast {
+      padding:10px 20px; border-radius:12px; font-size:0.8rem; font-weight:700;
+      box-shadow:0 8px 32px rgba(0,0,0,0.3); pointer-events:auto;
+      animation: toastIn 0.3s ease;
+    }
+    .toast-out { animation: toastOut 0.3s ease forwards; }
+
+    /* ========== 点击区域 ========== */
+    .tap-area { position:fixed; inset:0; z-index:90; cursor:pointer; }
+
+    /* ========== 开关组 ========== */
+    .options-bar {
+      display:flex; gap:16px; flex-wrap:wrap; justify-content:center;
+      margin-bottom: clamp(0.8rem, 2vw, 1.2rem);
+      padding: 0 12px;
+    }
+    .opt-toggle {
+      display:flex; align-items:center; gap:6px; cursor:pointer;
+      user-select:none; -webkit-tap-highlight-color: transparent;
+    }
+    .opt-toggle input { display:none; }
+    .opt-switch {
+      position:relative; width:36px; height:20px; border-radius:10px;
+      background:rgba(255,255,255,0.12); transition:background 0.25s;
+      flex-shrink:0;
+    }
+    .opt-switch::after {
+      content:''; position:absolute; left:2px; top:2px;
+      width:16px; height:16px; border-radius:50%; background:#6b7280;
+      transition:all 0.25s;
+    }
+    .opt-toggle input:checked + .opt-switch {
+      background:rgba(234,179,8,0.35);
+    }
+    .opt-toggle input:checked + .opt-switch::after {
+      left:18px; background:#fbbf24;
+    }
+    .opt-label {
+      color:#9ca3af; font-size: clamp(0.65rem, 2.5vw, 0.75rem); font-weight:600;
+    }
+
+    /* ========== 锁定卡片 ========== */
+    .level-card.locked {
+      opacity:0.4; pointer-events:none; filter:grayscale(0.6);
+    }
+    .level-card-lock {
+      font-size:1.2rem; margin-top:4px;
+    }
+
+    /* ========== 规则说明 ========== */
+    .rules-box {
+      width:100%; max-width:400px; margin-bottom: clamp(0.8rem, 2vw, 1rem);
+      padding: 12px 16px; border-radius:14px;
+      background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+    }
+    .rules-toggle {
+      display:flex; align-items:center; justify-content:space-between;
+      cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
+    }
+    .rules-toggle-title {
+      color:#d1d5db; font-size: clamp(0.75rem, 3vw, 0.85rem); font-weight:700;
+    }
+    .rules-toggle-arrow {
+      color:#6b7280; font-size:0.8rem; transition:transform 0.3s;
+    }
+    .rules-box.open .rules-toggle-arrow { transform:rotate(180deg); }
+    .rules-body {
+      max-height:0; overflow:hidden; transition:max-height 0.35s ease;
+    }
+    .rules-box.open .rules-body { max-height:300px; }
+    .rules-list {
+      list-style:none; padding:10px 0 0 0; margin:0;
+    }
+    .rules-list li {
+      color:#9ca3af; font-size: clamp(0.65rem, 2.5vw, 0.75rem);
+      padding: 3px 0; line-height:1.6;
+    }
+    .rules-list li::before { content:'· '; color:#fbbf24; font-weight:900; }
+  </style>
+</head>
+<body>
+
+<!-- ==================== 主菜单 ==================== -->
+<div id="menuScreen" class="menu-bg">
+  <!-- 背景装饰 -->
+  <div class="decor-dot" style="width:8px;height:8px;background:rgba(255,215,0,0.3);top:10%;left:20%"></div>
+  <div class="decor-dot" style="width:10px;height:10px;background:rgba(255,165,0,0.2);top:30%;right:15%;animation-delay:0.5s"></div>
+  <div class="decor-dot" style="width:8px;height:8px;background:rgba(255,80,80,0.25);bottom:25%;left:30%;animation-delay:1s"></div>
+  <div class="decor-dot" style="width:6px;height:6px;background:rgba(255,215,0,0.3);top:60%;right:25%;animation-delay:0.3s"></div>
+
+  <!-- 标题 -->
+  <div style="text-align:center;margin-bottom:8px;user-select:none">
+    <div class="title-shine" style="font-size:clamp(3rem,12vw,4.5rem);font-weight:900;letter-spacing:-2px;line-height:1">响亮！</div>
+    <div class="title-shine" style="font-size:clamp(2rem,8vw,3.2rem);font-weight:900;letter-spacing:4px;margin-top:4px">影帝</div>
+  </div>
+  <p style="color:#6b7280;font-size:clamp(0.7rem,2.5vw,0.85rem);letter-spacing:6px;margin-bottom:clamp(0.8rem,3vw,1.2rem);text-transform:uppercase">Slap Master</p>
+
+  <!-- 活动规则说明 -->
+  <div class="rules-box open" id="rulesBox">
+    <div class="rules-toggle" id="rulesToggle">
+      <span class="rules-toggle-title">📖 玩法说明</span>
+      <span class="rules-toggle-arrow">▼</span>
+    </div>
+    <div class="rules-body">
+      <ul class="rules-list">
+        <li>观看视频，在巴掌扇出的瞬间<b style="color:#fbbf24">点击屏幕</b></li>
+        <li>踩准节拍得 <b style="color:#ffd700">Perfect</b>，稍偏得 <b style="color:#60a5fa">Great</b></li>
+        <li>拍早、拍晚或漏拍都算 <b style="color:#ef4444">Miss</b>，一次失误即淘汰</li>
+        <li>逐关挑战，通关后解锁下一关</li>
+        <li>开启「选关模式」可自由选择任意关卡</li>
+        <li>开启「辅助提示」会在卡点前显示倒计时提醒</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 开关选项 -->
+  <div class="options-bar">
+    <label class="opt-toggle">
+      <input type="checkbox" id="chkAssist">
+      <span class="opt-switch"></span>
+      <span class="opt-label">辅助提示</span>
+    </label>
+    <label class="opt-toggle">
+      <input type="checkbox" id="chkFreeSelect">
+      <span class="opt-switch"></span>
+      <span class="opt-label">选关模式</span>
+    </label>
+  </div>
+
+  <!-- 关卡选择 -->
+  <div id="levelSelect" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:clamp(1rem,3vw,1.5rem);padding:0 12px;max-width:420px;width:100%"></div>
+
+  <!-- 开始按钮 -->
+  <button id="btnStart" class="btn-start" disabled>
+    <span id="btnStartText">选择关卡…</span>
+  </button>
+  <p id="loadingHint" style="color:#6b7280;font-size:clamp(0.65rem,2.5vw,0.75rem);margin-top:8px;text-align:center;padding:0 20px">选择一个关卡开始游戏</p>
+</div>
+
+<!-- ==================== 游戏画面 ==================== -->
+<div id="gameScreen" style="position:fixed;inset:0;z-index:40;display:none;background:#000">
+  <video id="gameVideo" playsinline preload="auto" webkit-playsinline></video>
+
+  <!-- HUD -->
+  <div class="game-hud">
+    <div class="hud-left">
+      <div id="livesDisplay" class="lives-display">
+        <span class="life-heart">❤️</span><span class="life-heart">❤️</span><span class="life-heart">❤️</span>
+      </div>
+      <div class="score-display">SCORE: <span id="scoreDisplay">0</span></div>
+    </div>
+    <div class="hud-right">
+      <button id="btnPause" class="btn-pause">⏸</button>
+      <div id="comboDisplay" class="combo-display">
+        <div class="combo-label">Combo</div>
+        <div id="comboCount" class="combo-count">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 卡点提示 -->
+  <div id="hitHintBar" class="hit-hint">👋 准备拍！</div>
+
+  <!-- 底部进度条 -->
+  <div class="progress-bar">
+    <div class="progress-track">
+      <div id="hitProgress" class="progress-fill"></div>
+    </div>
+  </div>
+
+  <!-- 点击区域 -->
+  <div id="tapArea" class="tap-area"></div>
+</div>
+
+<!-- ==================== 结算面板 ==================== -->
+<div id="resultScreen" class="overlay" style="z-index:200">
+  <div class="overlay-bg"></div>
+  <div class="overlay-content">
+    <div class="result-card">
+      <div id="resultGrade" class="result-grade"></div>
+      <div id="resultTitle" class="result-title"></div>
+      <div class="result-stats">
+        <div><div id="resultScore" class="stat-value" style="color:#fbbf24">0</div><div class="stat-label">总分</div></div>
+        <div><div id="resultCombo" class="stat-value" style="color:#fb923c">0</div><div class="stat-label">最大连击</div></div>
+        <div><div id="resultPerfects" class="stat-value" style="color:#4ade80">0</div><div class="stat-label">Perfect</div></div>
+      </div>
+      <div class="result-detail">
+        <div><span id="rPerfect" style="color:#fbbf24">0</span> <span class="label">Perfect</span></div>
+        <div><span id="rGreat" style="color:#60a5fa">0</span> <span class="label">Great</span></div>
+        <div><span id="rMiss" style="color:#9ca3af">0</span> <span class="label">Miss</span></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button id="btnRetry" class="btn-action btn-retry">🔄 重试</button>
+        <button id="btnNext" class="btn-action btn-next">下一关 ➡</button>
+      </div>
+      <button id="btnBackMenu" class="btn-back">返回主菜单</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 暂停面板 ==================== -->
+<div id="pauseScreen" class="overlay" style="z-index:150">
+  <div class="overlay-bg" style="background:rgba(0,0,0,0.7)"></div>
+  <div class="pause-content">
+    <div class="pause-title">⏸ 暂停</div>
+    <button id="btnResume" class="btn-resume">▶ 继续</button>
+    <button id="btnQuit" class="btn-quit">🚪 退出</button>
+  </div>
+</div>
+
+<!-- ==================== Toast ==================== -->
+<div id="toastContainer" class="toast-container"></div>
+
+<script>
+// ================================================================
+// 📦 关卡配置 —— 直接在这里修改即可
+// ================================================================
+const LEVELS = [
+  {
+    id: 1,
+    title: "许妍",
+    videoUrl: "许妍2.mp4",
+    targetTimes: [10.776],
+    difficulty: "Easy",
+    lives: 1,
+    icon: "✋"
+  },
+  {
+    id: 2,
+    title: "逐玉",
+    videoUrl: "逐玉3.mp4",
+    targetTimes: [3.920],
+    difficulty: "Normal",
+    lives: 1,
+    icon: "🫲"
+  },
+  {
+    id: 3,
+    title: "甄嬛",
+    videoUrl: "甄嬛4.mp4",
+    targetTimes: [9.480],
+    difficulty: "Normal",
+    lives: 1,
+    icon: "🤚"
+  },
+  {
+    id: 4,
+    title: "全员耳光",
+    videoUrl: "所有人我都扇耳光.mp4",
+    targetTimes: [0.32, 2.56, 3.47, 4.43, 5.23, 6.47, 7.76, 8.77, 9.44, 14.85, 15.87, 20.44, 23.11, 23.88, 25.14, 25.79, 26.49, 27.00, 27.36, 28.00, 31.75],
+    difficulty: "Insane",
+    lives: 1,
+    icon: "🔥"
+  }
+];
+
+// ================================================================
+// ⚙️ 游戏参数
+// ================================================================
+const CONFIG = {
+  perfectWindow: 0.10,
+  greatWindow: 0.20,
+  warningTime: 1.5,
+  debounceMs: 400,
+  pauseOnHitMs: 80,
+};
+
+// ================================================================
+// 📦 游戏状态
+// ================================================================
+const GameState = { MENU:'menu', COUNTDOWN:'countdown', PLAYING:'playing', PAUSED:'paused', RESULT:'result' };
+const game = {
+  state: GameState.MENU,
+  currentLevel: -1,
+  score: 0, combo: 0, maxCombo: 0,
+  lives: 3, maxLives: 3,
+  perfectCount: 0, greatCount: 0, missCount: 0,
+  hitTargets: new Set(),
+  lastTapTime: 0,
+  videoReady: false,
+  missCheckTimer: null,
+  assistMode: false,
+  freeSelect: false,
+  unlockedLevel: 0,  // 已解锁的最高关卡索引（0=只解锁第1关）
+};
+
+// ================================================================
+// 🎯 DOM
+// ================================================================
+const $ = s => document.querySelector(s);
+const dom = {
+  menuScreen: $('#menuScreen'), gameScreen: $('#gameScreen'),
+  resultScreen: $('#resultScreen'), pauseScreen: $('#pauseScreen'),
+  btnStart: $('#btnStart'), btnStartText: $('#btnStartText'), loadingHint: $('#loadingHint'),
+  levelSelect: $('#levelSelect'),
+  video: $('#gameVideo'), tapArea: $('#tapArea'), btnPause: $('#btnPause'),
+  btnResume: $('#btnResume'), btnQuit: $('#btnQuit'),
+  livesDisplay: $('#livesDisplay'), scoreDisplay: $('#scoreDisplay'),
+  comboDisplay: $('#comboDisplay'), comboCount: $('#comboCount'), hitProgress: $('#hitProgress'),
+  hitHintBar: $('#hitHintBar'),
+  resultGrade: $('#resultGrade'), resultTitle: $('#resultTitle'), resultScore: $('#resultScore'),
+  resultCombo: $('#resultCombo'), resultPerfects: $('#resultPerfects'),
+  rPerfect: $('#rPerfect'), rGreat: $('#rGreat'), rMiss: $('#rMiss'),
+  btnRetry: $('#btnRetry'), btnNext: $('#btnNext'), btnBackMenu: $('#btnBackMenu'),
+  toastContainer: $('#toastContainer'),
+  chkAssist: $('#chkAssist'), chkFreeSelect: $('#chkFreeSelect'),
+  rulesBox: $('#rulesBox'), rulesToggle: $('#rulesToggle'),
+};
+
+// ================================================================
+// 🍞 Toast
+// ================================================================
+function showToast(msg, type='info', dur=2000) {
+  const styles = {
+    info: 'background:#1f2937;color:#e5e7eb',
+    success: 'background:#065f46;color:#a7f3d0',
+    error: 'background:#7f1d1d;color:#fca5a5',
+    warn: 'background:#78350f;color:#fde68a'
+  };
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.style.cssText = styles[type] || styles.info;
+  t.textContent = msg;
+  dom.toastContainer.appendChild(t);
+  setTimeout(() => { t.classList.add('toast-out'); setTimeout(() => t.remove(), 300); }, dur);
+}
+
+// ================================================================
+// 🎬 初始化
+// ================================================================
+function init() {
+  // 读取本地存储的解锁进度
+  var saved = localStorage.getItem('slap_unlocked');
+  if (saved !== null) game.unlockedLevel = parseInt(saved) || 0;
+
+  renderLevelCards();
+  bindEvents();
+
+  // 默认自动选中第1关（或当前最高解锁关）
+  autoSelectLevel();
+}
+
+function autoSelectLevel() {
+  var idx = Math.min(game.unlockedLevel, LEVELS.length - 1);
+  game.currentLevel = idx;
+  dom.levelSelect.querySelectorAll('.level-card').forEach(function(c, i) {
+    if (i === idx) c.classList.add('active');
+    else c.classList.remove('active');
+  });
+  prepareLevel(idx);
+}
+
+// ================================================================
+// 🗂 关卡选择卡片
+// ================================================================
+function renderLevelCards() {
+  dom.levelSelect.innerHTML = LEVELS.map(function(lvl, i) {
+    var diffClass = 'diff-' + lvl.difficulty.toLowerCase();
+    var insaneClass = lvl.difficulty === 'Insane' ? ' insane-card' : '';
+    var isLocked = !game.freeSelect && i > game.unlockedLevel;
+    var lockedClass = isLocked ? ' locked' : '';
+    var lockBadge = isLocked ? '<div class="level-card-lock">🔒</div>' : '';
+    return '<div class="level-card' + insaneClass + lockedClass + '" data-idx="' + i + '">' +
+      '<div class="level-card-icon">' + (isLocked ? '🔒' : (lvl.icon || '👋')) + '</div>' +
+      '<div class="level-card-title">' + lvl.title + '</div>' +
+      '<span class="level-card-diff ' + diffClass + '">' + lvl.difficulty + '</span>' +
+      '<div class="level-card-count">' + lvl.targetTimes.length + ' 个巴掌' + (lvl.lives === 1 ? ' · 💀一击必杀' : '') + '</div>' +
+      lockBadge +
+    '</div>';
+  }).join('');
+
+  dom.levelSelect.querySelectorAll('.level-card').forEach(function(card) {
+    card.addEventListener('click', function() {
+      var idx = parseInt(card.dataset.idx);
+      if (!game.freeSelect && idx > game.unlockedLevel) {
+        showToast('🔒 请先通过前面的关卡', 'warn');
+        return;
+      }
+      dom.levelSelect.querySelectorAll('.level-card').forEach(function(c) { c.classList.remove('active'); });
+      card.classList.add('active');
+      game.currentLevel = idx;
+      prepareLevel(idx);
+    });
+  });
+}
+
+// ================================================================
+// 📹 准备关卡
+// ================================================================
+function prepareLevel(idx) {
+  const lvl = LEVELS[idx];
+  if (!lvl) return;
+
+  game.videoReady = false;
+  dom.btnStart.disabled = true;
+  dom.btnStartText.textContent = '加载中...';
+  dom.loadingHint.textContent = '正在缓冲「' + lvl.title + '」…';
+
+  dom.video.oncanplaythrough = null;
+  dom.video.onerror = null;
+  dom.video.onloadeddata = null;
+
+  dom.video.src = lvl.videoUrl;
+  dom.video.load();
+
+  var loadTimeout = null;
+
+  function onReady() {
+    if (game.videoReady) return;
+    game.videoReady = true;
+    if (loadTimeout) clearTimeout(loadTimeout);
+    dom.btnStart.disabled = false;
+    dom.btnStartText.textContent = '▶ 开始 · ' + lvl.title;
+    dom.loadingHint.textContent = lvl.difficulty + ' · ' + lvl.targetTimes.length + ' 个巴掌 · 就绪';
+    dom.video.oncanplaythrough = null;
+    dom.video.onloadeddata = null;
+  }
+
+  dom.video.oncanplaythrough = onReady;
+  dom.video.onloadeddata = function() {
+    if (!game.videoReady) onReady();
+  };
+
+  loadTimeout = setTimeout(function() {
+    if (!game.videoReady && dom.video.readyState >= 1) onReady();
+  }, 5000);
+
+  dom.video.onerror = function() {
+    if (loadTimeout) clearTimeout(loadTimeout);
+    dom.btnStartText.textContent = '视频加载失败 ✕';
+    dom.loadingHint.textContent = '请检查「' + lvl.videoUrl + '」是否在同目录下';
+  };
+}
+
+// ================================================================
+// 🎮 开始游戏
+// ================================================================
+function startGame() {
+  var lvl = LEVELS[game.currentLevel];
+  if (!lvl) return;
+
+  game.state = GameState.COUNTDOWN;
+  game.score = 0; game.combo = 0; game.maxCombo = 0;
+  game.lives = lvl.lives || 3; game.maxLives = game.lives;
+  game.perfectCount = 0; game.greatCount = 0; game.missCount = 0;
+  game.hitTargets = new Set(); game.lastTapTime = 0;
+
+  // 动态生成生命条
+  dom.livesDisplay.innerHTML = '';
+  for (var li = 0; li < game.lives; li++) {
+    var s = document.createElement('span'); s.className = 'life-heart'; s.textContent = '❤️';
+    dom.livesDisplay.appendChild(s);
+  }
+  dom.scoreDisplay.textContent = '0';
+  dom.comboCount.textContent = '0';
+  dom.comboDisplay.style.display = 'none';
+  dom.hitProgress.style.width = '0%';
+  dom.hitHintBar.style.opacity = '0';
+
+  dom.menuScreen.style.display = 'none';
+  dom.gameScreen.style.display = 'block';
+  dom.resultScreen.style.display = 'none';
+  dom.pauseScreen.style.display = 'none';
+
+  dom.video.currentTime = 0;
+
+  // 倒计时
+  var count = 3;
+  function doCount() {
+    if (count <= 0) {
+      game.state = GameState.PLAYING;
+      dom.video.play().catch(function(){});
+      requestAnimationFrame(gameLoop);
+      startMissChecker();
+      return;
+    }
+    var el = document.createElement('div');
+    el.className = 'countdown-num';
+    el.textContent = count;
+    document.body.appendChild(el);
+    setTimeout(function() { el.remove(); }, 800);
+    count--;
+    setTimeout(doCount, 700);
+  }
+  doCount();
+}
+
+// ================================================================
+// 🔄 游戏主循环
+// ================================================================
+function gameLoop() {
+  if (game.state !== GameState.PLAYING) return;
+  var dur = dom.video.duration || 1;
+  var ct = dom.video.currentTime;
+  dom.hitProgress.style.width = ((ct / dur) * 100) + '%';
+
+  var lvl = LEVELS[game.currentLevel];
+  var showHint = false;
+  if (game.assistMode) {
+    for (var i = 0; i < lvl.targetTimes.length; i++) {
+      if (game.hitTargets.has(i)) continue;
+      var diff = lvl.targetTimes[i] - ct;
+      if (diff > 0 && diff <= CONFIG.warningTime) {
+        showHint = true;
+        if (diff <= 0.5) {
+          dom.hitHintBar.textContent = '👋 拍！';
+          dom.hitHintBar.style.background = 'rgba(234,179,8,0.8)';
+          dom.hitHintBar.style.color = '#000';
+        } else {
+          dom.hitHintBar.textContent = '👋 准备… ' + diff.toFixed(1) + 's';
+          dom.hitHintBar.style.background = 'rgba(0,0,0,0.6)';
+          dom.hitHintBar.style.color = '#fbbf24';
+        }
+        break;
+      }
+    }
+  }
+  dom.hitHintBar.style.opacity = showHint ? '1' : '0';
+  requestAnimationFrame(gameLoop);
+}
+
+// ================================================================
+// 🎯 Miss 自动检测
+// ================================================================
+function startMissChecker() {
+  stopMissChecker();
+  game.missCheckTimer = setInterval(function() {
+    if (game.state !== GameState.PLAYING) return;
+    var lvl = LEVELS[game.currentLevel];
+    var ct = dom.video.currentTime;
+    for (var i = 0; i < lvl.targetTimes.length; i++) {
+      if (game.hitTargets.has(i)) continue;
+      if (ct - lvl.targetTimes[i] > CONFIG.greatWindow) {
+        game.hitTargets.add(i);
+        executeMiss();
+        if (game.lives <= 0) return;
+      }
+    }
+  }, 50);
+}
+
+function stopMissChecker() {
+  if (game.missCheckTimer) { clearInterval(game.missCheckTimer); game.missCheckTimer = null; }
+}
+
+// ================================================================
+// 👋 处理拍击
+// ================================================================
+function handleTap(e) {
+  if (game.state !== GameState.PLAYING) return;
+  var now = Date.now();
+  // 动态防抖：根据关卡最小节拍间隔计算
+  var lvl = LEVELS[game.currentLevel];
+  var minGap = Infinity;
+  for (var g = 1; g < lvl.targetTimes.length; g++) {
+    var gap = lvl.targetTimes[g] - lvl.targetTimes[g-1];
+    if (gap < minGap) minGap = gap;
+  }
+  var debounce = lvl.targetTimes.length <= 1 ? CONFIG.debounceMs : Math.min(CONFIG.debounceMs, Math.max(100, (minGap * 1000) * 0.4));
+  if (now - game.lastTapTime < debounce) return;
+  game.lastTapTime = now;
+
+  var ct = dom.video.currentTime;
+  var bestDelta = Infinity, bestIdx = -1;
+
+  for (var i = 0; i < lvl.targetTimes.length; i++) {
+    if (game.hitTargets.has(i)) continue;
+    var d = Math.abs(ct - lvl.targetTimes[i]);
+    if (d < bestDelta) { bestDelta = d; bestIdx = i; }
+  }
+
+  if (bestDelta <= CONFIG.perfectWindow) {
+    executePerfect(bestIdx, e);
+  } else if (bestDelta <= CONFIG.greatWindow) {
+    executeGreat(bestIdx, e);
+  } else {
+    executeBadTap(e);
+  }
+}
+
+function executePerfect(idx, event) {
+  game.score += 1000; game.combo++; game.perfectCount++;
+  if (idx >= 0) game.hitTargets.add(idx);
+  triggerShake(); triggerFlash(); triggerShockwave();
+  spawnParticles(event, '#ffd700');
+  showFloat('PERFECT! 👋', '#ffd700');
+  showSlapHand(event);
+  triggerVibrate([200]);
+  triggerPause();
+  updateHUD();
+}
+
+function executeGreat(idx, event) {
+  game.score += 500; game.combo++; game.greatCount++;
+  if (idx >= 0) game.hitTargets.add(idx);
+  spawnParticles(event, '#60a5fa');
+  showFloat('GREAT!', '#60a5fa');
+  showSlapHand(event);
+  triggerVibrate([100]);
+  triggerPause();
+  updateHUD();
+}
+
+function executeBadTap(event) {
+  game.combo = 0; game.missCount++; game.lives--;
+  showFloat('MISS...', '#888');
+  triggerVibrate([50, 50, 50]);
+  updateLivesUI(true);
+  updateHUD();
+  if (game.lives <= 0) setTimeout(function(){ endLevel(true); }, 300);
+}
+
+function executeMiss() {
+  game.combo = 0; game.missCount++; game.lives--;
+  showFloat('MISS...', '#ef4444');
+  triggerVibrate([50, 50, 50]);
+  updateLivesUI(true);
+  updateHUD();
+  if (game.lives <= 0) setTimeout(function(){ endLevel(true); }, 300);
+}
+
+function updateHUD() {
+  if (game.combo > game.maxCombo) game.maxCombo = game.combo;
+  dom.scoreDisplay.textContent = game.score.toLocaleString();
+  if (game.combo > 0) {
+    dom.comboDisplay.style.display = 'block';
+    dom.comboCount.textContent = game.combo;
+    dom.comboCount.classList.remove('combo-pop');
+    void dom.comboCount.offsetWidth;
+    dom.comboCount.classList.add('combo-pop');
+  } else {
+    dom.comboDisplay.style.display = 'none';
+  }
+}
+
+// ================================================================
+// ✨ 特效
+// ================================================================
+function triggerShake() {
+  document.body.classList.remove('shake');
+  void document.body.offsetWidth;
+  document.body.classList.add('shake');
+  setTimeout(function(){ document.body.classList.remove('shake'); }, 150);
+}
+function triggerFlash() {
+  var f = document.createElement('div'); f.className = 'flash-overlay';
+  document.body.appendChild(f); setTimeout(function(){ f.remove(); }, 150);
+}
+function triggerShockwave() {
+  var r = document.createElement('div'); r.className = 'shockwave-ring';
+  document.body.appendChild(r); setTimeout(function(){ r.remove(); }, 350);
+}
+function spawnParticles(event, color) {
+  var cx = (event && event.clientX) || (event && event.touches && event.touches[0] && event.touches[0].clientX) || innerWidth/2;
+  var cy = (event && event.clientY) || (event && event.touches && event.touches[0] && event.touches[0].clientY) || innerHeight/2;
+  for (var i = 0; i < 12; i++) {
+    var p = document.createElement('div'); p.className = 'hit-particle'; p.style.background = color;
+    var a = (Math.PI*2*i)/12 + Math.random()*0.5, d = 50+Math.random()*80;
+    p.style.setProperty('--px', cx+'px'); p.style.setProperty('--py', cy+'px');
+    p.style.setProperty('--dx', Math.cos(a)*d+'px'); p.style.setProperty('--dy', Math.sin(a)*d+'px');
+    p.style.left='0'; p.style.top='0'; document.body.appendChild(p);
+    setTimeout(function(el){ el.remove(); }, 400, p);
+  }
+}
+function showFloat(text, color) {
+  var e = document.createElement('div'); e.className = 'float-text';
+  e.textContent = text; e.style.color = color;
+  document.body.appendChild(e); setTimeout(function(){ e.remove(); }, 500);
+}
+function showSlapHand(event) {
+  var cx = (event && event.clientX) || (event && event.touches && event.touches[0] && event.touches[0].clientX) || innerWidth/2;
+  var cy = (event && event.clientY) || (event && event.touches && event.touches[0] && event.touches[0].clientY) || innerHeight/2;
+  var h = document.createElement('div'); h.className = 'slap-hand';
+  h.textContent = '🫲'; h.style.left = cx+'px'; h.style.top = cy+'px';
+  document.body.appendChild(h); setTimeout(function(){ h.remove(); }, 400);
+}
+function triggerVibrate(p) { if (navigator.vibrate) navigator.vibrate(p); }
+function triggerPause() {
+  dom.video.pause();
+  setTimeout(function() {
+    if (game.state === GameState.PLAYING) dom.video.play().catch(function(){});
+  }, CONFIG.pauseOnHitMs);
+}
+
+function updateLivesUI(anim) {
+  var hearts = dom.livesDisplay.querySelectorAll('.life-heart');
+  for (var i = 0; i < hearts.length; i++) {
+    if (i < game.lives) { hearts[i].textContent = '❤️'; hearts[i].classList.remove('heart-lost'); }
+    else { if (anim && i === game.lives) hearts[i].classList.add('heart-lost'); hearts[i].textContent = '🖤'; }
+  }
+}
+
+// ================================================================
+// 🏁 结算
+// ================================================================
+function endLevel(fail) {
+  game.state = GameState.RESULT;
+  dom.video.pause();
+  stopMissChecker();
+  dom.hitHintBar.style.opacity = '0';
+
+  var total = game.perfectCount + game.greatCount + game.missCount;
+  var grade, gc, gt;
+  if (fail) {
+    grade = '💀'; gc = '#ef4444'; gt = '生命值耗尽 · 挑战失败';
+  } else {
+    var pr = total > 0 ? game.perfectCount / total : 0;
+    if (pr >= 0.9 && game.missCount === 0) { grade = 'S'; gc = '#ffd700'; gt = '完美无瑕 · 传说级'; }
+    else if (pr >= 0.7) { grade = 'A'; gc = '#f97316'; gt = '精准出击 · 大师级'; }
+    else if (pr >= 0.4) { grade = 'B'; gc = '#3b82f6'; gt = '表现不错 · 继续加油'; }
+    else { grade = 'C'; gc = '#9ca3af'; gt = '初学乍练 · 多多练习'; }
+  }
+
+  dom.resultGrade.textContent = grade; dom.resultGrade.style.color = gc;
+  dom.resultTitle.textContent = gt;
+  dom.resultScore.textContent = game.score.toLocaleString();
+  dom.resultCombo.textContent = game.maxCombo;
+  dom.resultPerfects.textContent = game.perfectCount;
+  dom.rPerfect.textContent = game.perfectCount;
+  dom.rGreat.textContent = game.greatCount;
+  dom.rMiss.textContent = game.missCount;
+
+  dom.btnNext.style.display = (game.currentLevel < LEVELS.length - 1 && !fail) ? 'block' : 'none';
+  dom.resultScreen.style.display = 'block';
+
+  // 通关后解锁下一关
+  if (!fail && game.currentLevel >= game.unlockedLevel && game.currentLevel < LEVELS.length - 1) {
+    game.unlockedLevel = game.currentLevel + 1;
+    localStorage.setItem('slap_unlocked', game.unlockedLevel);
+  }
+}
+
+// ================================================================
+// ⏸ 暂停/继续
+// ================================================================
+function pauseGame() {
+  if (game.state !== GameState.PLAYING) return;
+  game.state = GameState.PAUSED; dom.video.pause();
+  stopMissChecker();
+  dom.pauseScreen.style.display = 'block';
+}
+function resumeGame() {
+  game.state = GameState.PLAYING;
+  dom.pauseScreen.style.display = 'none';
+  dom.video.play().catch(function(){});
+  requestAnimationFrame(gameLoop);
+  startMissChecker();
+}
+
+// ================================================================
+// 🚪 退出/重试/下一关
+// ================================================================
+function quitToMenu() {
+  game.state = GameState.MENU;
+  dom.video.pause(); dom.video.currentTime = 0;
+  stopMissChecker();
+  dom.gameScreen.style.display = 'none';
+  dom.pauseScreen.style.display = 'none';
+  dom.resultScreen.style.display = 'none';
+  dom.menuScreen.style.display = 'flex';
+  renderLevelCards();
+  autoSelectLevel();
+}
+
+function retryLevel() {
+  dom.resultScreen.style.display = 'none';
+  startGame();
+}
+
+function nextLevel() {
+  if (game.currentLevel < LEVELS.length - 1) {
+    game.currentLevel++;
+    dom.resultScreen.style.display = 'none';
+    dom.gameScreen.style.display = 'none';
+    dom.menuScreen.style.display = 'flex';
+    renderLevelCards();
+    dom.levelSelect.querySelectorAll('.level-card').forEach(function(c, i) {
+      if (i === game.currentLevel) c.classList.add('active');
+      else c.classList.remove('active');
+    });
+    prepareLevel(game.currentLevel);
+  }
+}
+
+// ================================================================
+// 📎 事件绑定
+// ================================================================
+function bindEvents() {
+  dom.btnStart.addEventListener('click', function() { if (game.videoReady) startGame(); });
+
+  dom.tapArea.addEventListener('click', handleTap);
+  dom.tapArea.addEventListener('touchstart', function(e) { e.preventDefault(); handleTap(e); }, { passive: false });
+
+  dom.btnPause.addEventListener('click', function(e) { e.stopPropagation(); pauseGame(); });
+  dom.btnResume.addEventListener('click', resumeGame);
+  dom.btnQuit.addEventListener('click', quitToMenu);
+  dom.btnRetry.addEventListener('click', retryLevel);
+  dom.btnNext.addEventListener('click', nextLevel);
+  dom.btnBackMenu.addEventListener('click', quitToMenu);
+
+  dom.video.addEventListener('ended', function() {
+    if (game.state === GameState.PLAYING) endLevel(false);
+  });
+
+  // 辅助提示开关
+  dom.chkAssist.addEventListener('change', function() {
+    game.assistMode = this.checked;
+  });
+
+  // 选关模式开关
+  dom.chkFreeSelect.addEventListener('change', function() {
+    game.freeSelect = this.checked;
+    renderLevelCards();
+    // 如果当前选中的关被锁了，自动回到最高解锁关
+    if (!game.freeSelect && game.currentLevel > game.unlockedLevel) {
+      autoSelectLevel();
+    } else {
+      // 保持当前选中
+      dom.levelSelect.querySelectorAll('.level-card').forEach(function(c, i) {
+        if (i === game.currentLevel) c.classList.add('active');
+        else c.classList.remove('active');
+      });
+    }
+  });
+
+  // 规则折叠
+  dom.rulesToggle.addEventListener('click', function() {
+    dom.rulesBox.classList.toggle('open');
+  });
+
+  // 防止双击缩放
+  document.addEventListener('dblclick', function(e) { e.preventDefault(); }, { passive: false });
+
+  // 防止长按呼出菜单
+  document.addEventListener('contextmenu', function(e) {
+    if (game.state === GameState.PLAYING) e.preventDefault();
+  });
+}
+
+// ================================================================
+// 🚀 启动
+// ================================================================
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
