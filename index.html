@@ -680,6 +680,93 @@ function showToast(msg, type='info', dur=2000) {
 }
 
 // ================================================================
+// 📦 视频预加载缓存（blob URL）
+// ================================================================
+const videoCache = {};  // { videoUrl: blobUrl }
+const videoProgress = {}; // { videoUrl: 0~100 }
+let preloadQueue = [];
+let preloadRunning = 0;
+const MAX_CONCURRENT = 2;
+
+function preloadVideo(videoUrl) {
+  if (videoCache[videoUrl]) return Promise.resolve();
+  if (videoProgress[videoUrl] !== undefined) return Promise.resolve(); // 已在加载中
+
+  return new Promise(function(resolve) {
+    videoProgress[videoUrl] = 0;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', videoUrl, true);
+    xhr.responseType = 'blob';
+    xhr.onprogress = function(e) {
+      if (e.lengthComputable) {
+        videoProgress[videoUrl] = Math.round((e.loaded / e.total) * 100);
+        updateLoadingUI();
+      }
+    };
+    xhr.onload = function() {
+      if (xhr.status === 200) {
+        videoCache[videoUrl] = URL.createObjectURL(xhr.response);
+        videoProgress[videoUrl] = 100;
+        updateLoadingUI();
+      }
+      resolve();
+    };
+    xhr.onerror = function() {
+      videoProgress[videoUrl] = -1;
+      resolve();
+    };
+    xhr.send();
+  });
+}
+
+function preloadAllVideos() {
+  var urls = LEVELS.map(function(l) { return l.videoUrl; });
+  // 先加载当前选中的关卡，再加载其余
+  var currentUrl = LEVELS[game.currentLevel] ? LEVELS[game.currentLevel].videoUrl : urls[0];
+  var sorted = [currentUrl].concat(urls.filter(function(u) { return u !== currentUrl; }));
+  var unique = [];
+  sorted.forEach(function(u) { if (unique.indexOf(u) === -1) unique.push(u); });
+
+  function next() {
+    if (unique.length === 0) return;
+    if (preloadRunning >= MAX_CONCURRENT) return;
+    var url = unique.shift();
+    if (videoCache[url]) { next(); return; }
+    preloadRunning++;
+    preloadVideo(url).then(function() {
+      preloadRunning--;
+      next();
+    });
+    next(); // 尝试并发
+  }
+  next();
+}
+
+function updateLoadingUI() {
+  if (game.currentLevel < 0) return;
+  var lvl = LEVELS[game.currentLevel];
+  if (!lvl) return;
+  var p = videoProgress[lvl.videoUrl];
+  if (p === undefined) return;
+
+  if (p === 100 && videoCache[lvl.videoUrl]) {
+    if (!game.videoReady) {
+      game.videoReady = true;
+      dom.video.src = videoCache[lvl.videoUrl];
+      dom.btnStart.disabled = false;
+      dom.btnStartText.textContent = '▶ 开始 · ' + lvl.title;
+      dom.loadingHint.textContent = lvl.difficulty + ' · ' + lvl.targetTimes.length + ' 个巴掌 · 就绪';
+    }
+  } else if (p >= 0) {
+    dom.btnStartText.textContent = '加载中 ' + p + '%';
+    dom.loadingHint.textContent = '正在缓冲「' + lvl.title + '」… ' + p + '%';
+  } else {
+    dom.btnStartText.textContent = '视频加载失败 ✕';
+    dom.loadingHint.textContent = '请检查「' + lvl.videoUrl + '」是否可访问';
+  }
+}
+
+// ================================================================
 // 🎬 初始化
 // ================================================================
 function init() {
@@ -692,6 +779,9 @@ function init() {
 
   // 默认自动选中第1关（或当前最高解锁关）
   autoSelectLevel();
+
+  // 页面打开时后台预加载所有视频
+  preloadAllVideos();
 }
 
 function autoSelectLevel() {
@@ -747,43 +837,43 @@ function prepareLevel(idx) {
 
   game.videoReady = false;
   dom.btnStart.disabled = true;
-  dom.btnStartText.textContent = '加载中...';
-  dom.loadingHint.textContent = '正在缓冲「' + lvl.title + '」…';
 
-  dom.video.oncanplaythrough = null;
-  dom.video.onerror = null;
-  dom.video.onloadeddata = null;
-
-  dom.video.src = lvl.videoUrl;
-  dom.video.load();
-
-  var loadTimeout = null;
-
-  function onReady() {
-    if (game.videoReady) return;
+  // 如果已经预加载完成，直接使用缓存
+  if (videoCache[lvl.videoUrl]) {
     game.videoReady = true;
-    if (loadTimeout) clearTimeout(loadTimeout);
+    dom.video.src = videoCache[lvl.videoUrl];
     dom.btnStart.disabled = false;
     dom.btnStartText.textContent = '▶ 开始 · ' + lvl.title;
     dom.loadingHint.textContent = lvl.difficulty + ' · ' + lvl.targetTimes.length + ' 个巴掌 · 就绪';
-    dom.video.oncanplaythrough = null;
-    dom.video.onloadeddata = null;
+    return;
   }
 
-  dom.video.oncanplaythrough = onReady;
-  dom.video.onloadeddata = function() {
-    if (!game.videoReady) onReady();
-  };
+  // 还在加载中，显示进度
+  var p = videoProgress[lvl.videoUrl];
+  if (p !== undefined && p >= 0) {
+    dom.btnStartText.textContent = '加载中 ' + p + '%';
+    dom.loadingHint.textContent = '正在缓冲「' + lvl.title + '」… ' + p + '%';
+  } else {
+    dom.btnStartText.textContent = '加载中...';
+    dom.loadingHint.textContent = '正在缓冲「' + lvl.title + '」…';
+    // 触发预加载（如果还没开始）
+    preloadVideo(lvl.videoUrl);
+  }
 
-  loadTimeout = setTimeout(function() {
-    if (!game.videoReady && dom.video.readyState >= 1) onReady();
-  }, 5000);
-
-  dom.video.onerror = function() {
-    if (loadTimeout) clearTimeout(loadTimeout);
-    dom.btnStartText.textContent = '视频加载失败 ✕';
-    dom.loadingHint.textContent = '请检查「' + lvl.videoUrl + '」是否在同目录下';
-  };
+  // 轮询等待加载完成
+  var pollTimer = setInterval(function() {
+    if (game.currentLevel !== idx) { clearInterval(pollTimer); return; }
+    if (videoCache[lvl.videoUrl]) {
+      clearInterval(pollTimer);
+      if (!game.videoReady) {
+        game.videoReady = true;
+        dom.video.src = videoCache[lvl.videoUrl];
+        dom.btnStart.disabled = false;
+        dom.btnStartText.textContent = '▶ 开始 · ' + lvl.title;
+        dom.loadingHint.textContent = lvl.difficulty + ' · ' + lvl.targetTimes.length + ' 个巴掌 · 就绪';
+      }
+    }
+  }, 200);
 }
 
 // ================================================================
